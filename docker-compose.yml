@@ -1,0 +1,11 @@
+version: "2"
+
+services:
+
+  registry:
+    image: nginx
+    volumes:
+    - ./:/registry/:ro
+    - ./registry.conf:/etc/nginx/conf.d/registry.conf:ro
+    ports:
+    - 5555:5000
