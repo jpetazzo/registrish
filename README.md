@@ -13,6 +13,15 @@ However, it can be deployed without running the registry code, using:
 - or the [Netlify] CDN
 
 
+## Example
+
+This should run an Alpine image hosted on Netlify using registrish:
+
+```bash
+docker run registrish.netlify.app/alpine echo hello there
+```
+
+
 ## How to use this
 
 Quick example. You need to have either a local Docker Engine,
