@@ -12,7 +12,7 @@ almost any static file hosting service. For instance:
 
 - a plain NGINX server (without LUA, JSX, or whatever custom module)
 - the [Netlify] CDN
-- an object store like S3
+- an object store like S3, or a compatible one like [Scaleway]
 
 
 ## Example
@@ -57,13 +57,30 @@ netlify deploy
 docker run deployed-site-name.netlify.app/alpine echo hello there
 
 # Deploy to an S3 bucket.
-aws s3 sync --acl public-read v2/ s3://bucketname/v2/
-aws s3 cp   --acl public-read v2/ s3://bucketname/v2/  \
+# (This assumes that your AWS credentials have been set up correctly,
+# e.g. through AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY variables.)
+BUCKETNAME=bucketname
+aws s3 sync --acl public-read v2/ s3://$BUCKETNAME/v2/
+aws s3 cp   --acl public-read v2/ s3://$BUCKETNAME/v2/  \
     --recursive --exclude '*' --include '*/manifests/*' \
     --content-type application/vnd.docker.distribution.manifest.v2+json  \
     --metadata-directive REPLACE
 # Run image from the registry.
-docker run bucketname.s3.amazonaws.com/alpine echo hello there
+docker run $BUCKETNAME.s3.amazonaws.com/alpine echo hello there
+
+# Deploy to an S3-compatible object store, e.g. Scaleway.
+# (This assumes that your credentials have been set up correctly.)
+BUCKETNAME=bucketname
+ENDPOINT=s3.fr-par.scw.cloud
+aws s3 sync --acl public-read v2/ s3://$BUCKETNAME/v2/  \
+    --endpoint-url https://$ENDPOINT
+aws s3 cp   --acl public-read v2/ s3://$BUCKETNAME/v2/  \
+    --recursive --exclude '*' --include '*/manifests/*' \
+    --content-type application/vnd.docker.distribution.manifest.v2+json  \
+    --metadata-directive REPLACE \
+    --endpoint-url https://$ENDPOINT
+# Run image from the registry.
+docker run $BUCKETNAME.$ENDPOINT/alpine echo hello there
 ```
 
 
@@ -117,4 +134,5 @@ on purpose to prevent abuse, but that's just an intuition.)
 
 
 [Netlify]: http://netlify.com/
+[Scaleway]: https://www.scaleway.com/en/pricing/#object-storage
 [Skopeo]: https://github.com/containers/skopeo
