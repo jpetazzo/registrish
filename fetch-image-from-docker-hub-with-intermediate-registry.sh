@@ -4,7 +4,7 @@ set -ue
 IMAGE=$1
 TAG=$2
 
-curl localhost:5000 || docker run -d -p 5000:5000
+curl localhost:5000 || docker run -d -p 5000:5000 registry:2
 REGISTRY=localhost:5000
 
 docker pull $IMAGE:$TAG
