@@ -7,10 +7,12 @@ This is *kind of* a Docker registry, but with many restrictions:
 - it only supports Image Manifest Version 2, Schema 2
 - it probably doesn't support multi-arch images
 
-However, it can be deployed without running the registry code, using:
+However, it can be deployed without running the registry code, using
+almost any static file hosting service. For instance:
 
-- either NGINX (plain NGINX, doesn't need any module, LUA, or anything else)
-- or the [Netlify] CDN
+- a plain NGINX server (without LUA, JSX, or whatever custom module)
+- the [Netlify] CDN
+- an object store like S3
 
 
 ## Example
@@ -19,6 +21,12 @@ This should run an Alpine image hosted on Netlify using registrish:
 
 ```bash
 docker run registrish.netlify.app/alpine echo hello there
+```
+
+This should run an Alpine image hosted on S3 using registrish:
+
+```bash
+docker run registrish.s3.amazonaws.com/alpine echo hello there
 ```
 
 
@@ -47,6 +55,15 @@ docker run localhost:5555/alpine echo hello there
 netlify deploy
 # Run image from the registry.
 docker run deployed-site-name.netlify.app/alpine echo hello there
+
+# Deploy to an S3 bucket.
+aws s3 sync --acl public-read v2/ s3://bucketname/v2/
+aws s3 cp   --acl public-read v2/ s3://bucketname/v2/  \
+    --recursive --exclude '*' --include '*/manifests/*' \
+    --content-type application/vnd.docker.distribution.manifest.v2+json  \
+    --metadata-directive REPLACE
+# Run image from the registry.
+docker run bucketname.s3.amazonaws.com/alpine echo hello there
 ```
 
 
