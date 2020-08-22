@@ -17,16 +17,22 @@ almost any static file hosting service. For instance:
 
 ## Example
 
-This should run an Alpine image hosted on Netlify using registrish:
+The following commands will run an Alpine image hosted on various
+locations, thanks to registrish.
 
+Netlify:
 ```bash
 docker run registrish.netlify.app/alpine echo hello there
 ```
 
-This should run an Alpine image hosted on S3 using registrish:
-
+S3:
 ```bash
 docker run registrish.s3.amazonaws.com/alpine echo hello there
+```
+
+Scaleway object store:
+```bash
+docker run registrish.s3.fr-par.scw.cloud/alpine echo hello there
 ```
 
 
@@ -122,6 +128,9 @@ headers, using an old version of the Docker Engine - 18.03 -
 and it worked anyway, so I don't know what I got wrong
 back then?)
 
+*It might be the case that when using an older version of the
+manifest format, that header becomes mandatory.*
+
 
 ## Notes
 
@@ -133,6 +142,21 @@ to serve binary blobs. (I suspect that they throttle them
 on purpose to prevent abuse, but that's just an intuition.)
 
 
+## Providers and object stores that might not work
+
+I've tried to use [OVHcloud] object storage, but it
+doesn't seem to be easy to do so. OVHcloud storage buckets
+have very long URLs like
+https://storage.gra.cloud.ovh.net/v1/AUTH_xxx-long-tenant-id-xxx/bucketname
+and the Docker registry protocol doesn't support uppercase
+characters in image names.
+
+It's possible to use custom domain names, but then there
+are certificate issues. If you know an easy way to make
+it work, let me know!
+
+
 [Netlify]: http://netlify.com/
+[OVHcloud]: https://www.ovhcloud.com/en/public-cloud/prices/#storage
 [Scaleway]: https://www.scaleway.com/en/pricing/#object-storage
 [Skopeo]: https://github.com/containers/skopeo
