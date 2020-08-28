@@ -141,6 +141,11 @@ Netlify is very fast to serve web pages, but not so much
 to serve binary blobs. (I suspect that they throttle them
 on purpose to prevent abuse, but that's just an intuition.)
 
+Their [terms of service] state the following (in August 2020):
+
+> Users must exercise caution when hosting large downloads (>10MB).
+> Netlify reserves the right to refuse to host any large downloadable files.
+
 
 ## Providers and object stores that might not work
 
@@ -156,7 +161,14 @@ are certificate issues. If you know an easy way to make
 it work, let me know!
 
 
+## Similar work and prior art
+
+- [NicolasT/static-container-registry](https://github.com/NicolasT/static-container-registry)
+- [singularityhub/registry](https://github.com/singularityhub/registry)
+
+
 [Netlify]: http://netlify.com/
 [OVHcloud]: https://www.ovhcloud.com/en/public-cloud/prices/#storage
 [Scaleway]: https://www.scaleway.com/en/pricing/#object-storage
 [Skopeo]: https://github.com/containers/skopeo
+[terms of service]: https://www.netlify.com/tos/
