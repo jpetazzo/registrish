@@ -48,6 +48,10 @@ or [Skopeo] installed, to pull images.
 # Or, if you have Skopeo:
 ./fetch-image-from-docker-hub-with-skopeo.sh alpine latest
 
+# If you want to be able to pull directly from containerd, run this:
+./link-manifests-by-sha.sh
+# (For each manifest, it will create a copy named sha256:xxxxxxxx...)
+
 # Check that image was correctly downloaded.
 ./list-images.sh
 
@@ -130,6 +134,31 @@ back then?)
 
 *It might be the case that when using an older version of the
 manifest format, that header becomes mandatory.*
+
+
+## Pull manifests by SHA
+
+When pulling an image with the Docker Engine, it will simply
+get the manifest at `/v2/<repository>/manifests/<tag>`.
+
+However, when pulling an image with containerd, it looks
+like it will get that manifest, compute its SHA256, then
+fetch it again at `/v2/<repository>/manifests/sha256:<sha>`.
+
+To ensure that this works correctly, there is a script
+`link-manifests-by-sha.sh` to copy each manifest to its
+`sha256:<sha>` counterpart.
+
+Note 1: perhaps having the correct HTTP headers would
+prevent this, I don't know.
+
+Note 2: the problem appears only when using "pure"
+containerd, not when using containerd with Docker.
+It looks like Docker has its own logic to pull images,
+and doesn't rely on containerd for that, since the
+images pulled by Docker don't show up in
+`ctr --namespace=moby images list`, for instance.
+(At least, not on my Linux machine.)
 
 
 ## Notes
