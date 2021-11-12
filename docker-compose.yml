@@ -1,11 +1,12 @@
-version: "2"
+version: "3"
 
 services:
 
   registry:
     image: nginx
     volumes:
-    - ./:/registry/:ro
+    - ./v2/:/registry/v2/:ro
     - ./registry.conf:/etc/nginx/conf.d/registry.conf:ro
+    - ./error.json:/registry/error.json:ro
     ports:
     - 5555:5000

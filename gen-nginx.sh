@@ -8,15 +8,16 @@ server {
   root /registry;
   location ~ /.*/manifests/.* {
     error_page 404 /error.json;
-    default_type application/vnd.docker.distribution.manifest.v2+json;
   }
 EOF
 for FILE in $(find v2 -type f)
 do
   echo "  location = /$FILE {"
-  echo "   add_header Docker-Content-Digest $(sha256sum $FILE | awk '{print $1}');"
+  echo "   add_header Docker-Content-Digest sha256:$(sha256sum $FILE | awk '{print $1}');"
   case "$FILE" in */manifests/*)
-  echo "   default_type application/vnd.docker.distribution.manifest.v2+json;" ;;
+    CONTENT_TYPE=$(jq -r .mediaType < $FILE)
+    echo "   default_type $CONTENT_TYPE;"
+    ;;
   esac
   echo "  }"
 done

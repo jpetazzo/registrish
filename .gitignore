@@ -1,6 +1,14 @@
+# Blobs, manifests...
 v2/
+
+# Node stuff (for Netlify CLI)
 node_modules/
+package.json
 package-lock.json
+
+# Generated configuration and header files
+registry.conf
+_headers
 
 # Local Netlify folder
 .netlify

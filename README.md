@@ -4,11 +4,14 @@ This is *kind of* a Docker registry, but with many restrictions:
 
 - it's read-only (you can `pull` but you cannot `push`)
 - it only supports public access (no authentication)
-- it only supports Image Manifest Version 2, Schema 2
-- it probably doesn't support multi-arch images
+- it only supports a subset of the Docker Distribution API
 
-However, it can be deployed without running the registry code, using
-almost any static file hosting service. For instance:
+The last point means that pulls from registrish will hopefully work,
+but might break in unexpected ways. See [Limitations] below for more info.
+
+On the bright side, registrish can be deployed without running
+the registry code, using almost any static file hosting service.
+For instance:
 
 - a plain NGINX server (without LUA, JSX, or whatever custom module)
 - the [Netlify] CDN
@@ -36,135 +39,188 @@ docker run registrish.s3.fr-par.scw.cloud/alpine echo hello there
 ```
 
 
-## How to use this
+## Hosting your images with registrish
 
-Quick example. You need to have either a local Docker Engine,
-or [Skopeo] installed, to pull images.
+In the following example, we are going to host the official image
+`alpine:latest` with registrish.
+
+Let's set a couple of env vars for convenience:
 
 ```bash
-# First, fetch an image (or a few).
-# If you have a Docker Engine running locally:
-./fetch-image-from-docker-hub-with-intermediate-registry.sh alpine latest
-# Or, if you have Skopeo:
-./fetch-image-from-docker-hub-with-skopeo.sh alpine latest
+export DIR=tmp IMAGE=alpine TAG=latest
+```
 
-# If you want to be able to pull directly from containerd, run this:
-./link-manifests-by-sha.sh
-# (For each manifest, it will create a copy named sha256:xxxxxxxx...)
+Let's obtain the manifests and blobs of the image. This requires [Skopeo].
 
-# Check that image was correctly downloaded.
-./list-images.sh
+```bash
+skopeo copy --all docker://$IMAGE:$TAG dir:$DIR
+```
 
-# Start NGINX in a local Docker container. (It will be on port 5555.)
-docker-compose up -d
-# Run image from the registry.
-docker run localhost:5555/alpine echo hello there
+The `--all` flag means that we want to obtain a *manifest list*
+(i.e a multi-arch image), if one is available.
 
-# Deploy to Netlify.
-# (This assumes that you have installed and configured the Netlify CLI.)
-netlify deploy
-# Run image from the registry.
-docker run deployed-site-name.netlify.app/alpine echo hello there
+Then, we're going to move the files downloaded by Skopeo to their
+respective directories. Blobs go to the `blobs` directory, and manifests
+go to the `manifests` directory. All files get renamed to `sha256:xxx`
+where `xxx` is their SHA256 checksum. The top-level manifest also gets
+copied to the tag name to allow pulling by tag.
 
-# Deploy to an S3 bucket.
-# (This assumes that your AWS credentials have been set up correctly,
-# e.g. through AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY variables.)
-BUCKETNAME=bucketname
-aws s3 sync --acl public-read v2/ s3://$BUCKETNAME/v2/
-aws s3 cp   --acl public-read v2/ s3://$BUCKETNAME/v2/  \
-    --recursive --exclude '*' --include '*/manifests/*' \
-    --content-type application/vnd.docker.distribution.manifest.v2+json  \
-    --metadata-directive REPLACE
-# Run image from the registry.
-docker run $BUCKETNAME.s3.amazonaws.com/alpine echo hello there
+```bash
+./dir2reg.sh
+```
 
-# Deploy to an S3-compatible object store, e.g. Scaleway.
-# (This assumes that your credentials have been set up correctly.)
-BUCKETNAME=bucketname
-ENDPOINT=s3.fr-par.scw.cloud
-aws s3 sync --acl public-read v2/ s3://$BUCKETNAME/v2/  \
-    --endpoint-url https://$ENDPOINT
-aws s3 cp   --acl public-read v2/ s3://$BUCKETNAME/v2/  \
-    --recursive --exclude '*' --include '*/manifests/*' \
-    --content-type application/vnd.docker.distribution.manifest.v2+json  \
-    --metadata-directive REPLACE \
-    --endpoint-url https://$ENDPOINT
-# Run image from the registry.
-docker run $BUCKETNAME.$ENDPOINT/alpine echo hello there
+You can check that everything looks fine with the `tree` command:
+
+```bash
+tree v2
+```
+
+There should be:
+
+- a bunch of `sha256:xxx` files in `blobs`,
+- a bunch of `sha256:xxx` files in `manifests`,
+- one tag file (e.g. `latest`) in `manifests`.
+
+Then, pick a registrish back-end and follow its specific instructions.
+
+
+### NGINX server
+
+Generate the NGINX configration file. The configuration file will
+set `content-type` HTTP headers.
+
+```bash
+./gen-nginx.sh
+```
+
+Start NGINX in a local Docker container. It will be on port 5555.
+
+```bash
+docker-compose up
+```
+
+The image will be available as `localhost:5555/$IMAGE:$TAG`.
+
+
+### Netlify
+
+Generate the Netlify headers file.
+
+```bash
+./gen-netlify.sh
+```
+
+To deploy to Netlify, it's better to deploy only the `v2` directory and the `_headers` file:
+
+```bash
+TEMP=$(mktemp -d)
+cp -a v2 _headers $TEMP
+npx netlify deploy --dir $TEMP --prod
+```
+
+
+### S3 bucket or compatible
+
+The following assumes that you have configured your S3 credentials,
+for instance by setting `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+environment variables.
+
+Update this variable with your bucket name.
+```bash
+export BUCKET=registrish
+```
+
+If you are using an S3-compatible API (e.g. Scaleway), set the
+following variables (or set the corresponding parameters in your
+profile).
+
+```bash
+export AWS_DEFAULT_REGION=fr-par
+export ENDPOINT="--endpoint-url https://s3.fr-par.scw.cloud"
+```
+
+Sync files to the bucket.
+
+```bash
+./reg2bucket.sh
+```
+
+The image will be available as `$BUCKET.s3.amazonaws.com/$IMAGE:$TAG`
+(for S3) or `$BUCKETNAME.$ENDPOINT/$IMAGE:$TAG` (for compatible APIs).
+
+
+## Testing
+
+When testing registrish, we want to be sure that the entire image
+will be pulled correctly with all its layers. If we try on our local
+container engine, we might already have some manifests and layers.
+
+One way to test that is to use a throwaway Docker-in-Docker container.
+
+```bash
+docker run --name dind -d --privileged --net host docker:dind
+docker exec dind docker pull REGISTRISH-IMAGE
+docker rm -f dind
 ```
 
 
 ## How it works
 
 The Docker Registry is *almost* a static web server.
-When the Docker Engine pulls an image, it will download
-`/v2/<imagename>/manifests/<tag>`, for instance
-`/v2/busybox/manifests/latest`. This is a JSON file
-that contains references to a number of *blobs*.
-One of these blobs will be a JSON file containing
-the configuration of the image (entry point, command,
-volumes, etc.) and the other ones will be the layers
-of the images. The blobs are stored in
-`/v2/<imagename>/blobs/sha256:<sha-of-the-blob>`.
+The main trick is to handle `Content-Type` headers correctly.
 
-There is one tiny twist: when serving the image manifest,
-the `Content-Type` HTTP header should be
-`application/vnd.docker.distribution.manifest.v2+json`.
-Otherwise, the Docker Engine will interpret the manifest
-as a different format, will fail to verify its signature,
-and will give you the error `missing signature key`.
+As far as I understand, this is what happens when a container engine
+tries to pull an image by tag.
 
+- First, the engine wants to know the hash of the manifest that we're
+  trying to pull.
+- To learn that hash, the engine makes a `HEAD` request on
+  `/v2/<image>/manifests/<tag>`.
+  - If the registry sends a `Docker-Content-Digest` header (which will
+    look like `sha256:<xxx>`), that header is the hash, so the engine
+    can go to the next step.
+  - If the registry doesn't send a `Docker-Content-Digest` header,
+    the engine makes a `GET` request on `/v2/<image>/manifests/<tag>`,
+    computes the SHA256 checksum of the response body (let's say it's
+    `<xxx>` to match the previous example). Now the engine has the hash
+    (at the cost of an extra HTTP request).
+- The engine makes a request to `/v2/<image>/manifests/sha256:<xxx>`.
+  The `Content-Type` will indicate if we're dealing with a v2 manifest
+  (single-arch image) or a v2 manifest list (multi-arch image).
+  - If it's a v2 manifest, we can use it directly.
+  - If it's a manifest list, it contains a list of manifests. Each entry
+    has a platform (e.g. `linux/amd64`) and a hash (for instance `sha256:<yyy>`).
+    The engine picks the entry that it deems appropriate (because it
+    matches its architecture, or one that it's compatible with) and it
+    requests the corresponding manifest, on `/v2/<image>/manifests/sha256:<yyy>`.
+    *That* manifest should be a v2 manifest.
+- The engine now has a v2 manifest. In the v2 manifest, there is a list
+  of *blobs*. One of these blobs will be a JSON file containing
+  the configuration of the image (entry point, command,
+  volumes, etc.) and the other ones will be the layers
+  of the images. The blobs are stored in
+  `/v2/<image>/blobs/sha256:<sha-of-the-blob>`.
 
-## `Docker-Content-Digest`
+As long as we use the correct `Content-Type` when serving image manifests,
+the container engine should be happy. *Unless...*
 
-A while ago (at some point in 2018, maybe?) I tried to
-implement this but didn't succeed. I don't know exactly
-what happened, but I had the impression that the
-`Docker-Content-Digest` header was mandatory. So when
-I tried again in August 2020, the first thing I did was
-to generate `Docker-Content-Digest` headers for both
-manifests and blobs. This is the job of the scripts
-`generate-netlify-headers.sh` and `generate-nginx-config.sh`.
-It looks like this is, in fact, not necessary.
-I've kept these scripts here just in case.
-(I tried to pull from registrish, without Docker-Content-Digest
-headers, using an old version of the Docker Engine - 18.03 -
-and it worked anyway, so I don't know what I got wrong
-back then?)
+*Unless* the container engine explicitly asks a specific type of
+manifests, which it can do by using `Accept` request headers.
+If the engine asks for a v2 manifest (single-arch) and we serve
+a v2 manifest list (multi-arch), I expect that it will complain loudly.
 
-*It might be the case that when using an older version of the
-manifest format, that header becomes mandatory.*
+I don't understand why my former colleagues at Docker decided
+to go with this scheme, instead of e.g. keeping v2 manifests in `/manifests`
+and storing the multi-arch manifest lists in e.g. `/lists`.
+It would have avoided using HTTP headers to alter the content served
+by the registry. 🤷🏻
 
-
-## Pull manifests by SHA
-
-When pulling an image with the Docker Engine, it will simply
-get the manifest at `/v2/<repository>/manifests/<tag>`.
-
-However, when pulling an image with containerd, it looks
-like it will get that manifest, compute its SHA256, then
-fetch it again at `/v2/<repository>/manifests/sha256:<sha>`.
-
-To ensure that this works correctly, there is a script
-`link-manifests-by-sha.sh` to copy each manifest to its
-`sha256:<sha>` counterpart.
-
-Note 1: perhaps having the correct HTTP headers would
-prevent this, I don't know.
-
-Note 2: the problem appears only when using "pure"
-containerd, not when using containerd with Docker.
-It looks like Docker has its own logic to pull images,
-and doesn't rely on containerd for that, since the
-images pulled by Docker don't show up in
-`ctr --namespace=moby images list`, for instance.
-(At least, not on my Linux machine.)
+I also don't understand the point of that `HEAD` request and custom
+`Docker-Content-Digest` HTTP header. The same result could have been
+achieved with an explicit HTTP route to resolve tags to hashes. 🤷🏻
 
 
 ## Notes
-
-As mentioned above, this probably doesn't work with
-multiarch images. It may or may not be easy to adapt.
 
 Netlify is very fast to serve web pages, but not so much
 to serve binary blobs. (I suspect that they throttle them
@@ -190,12 +246,19 @@ are certificate issues. If you know an easy way to make
 it work, let me know!
 
 
+## TODO
+
+- add 404 page on Netlify
+- try CloudFlare R2 as soon as it's out :)
+
+
 ## Similar work and prior art
 
 - [NicolasT/static-container-registry](https://github.com/NicolasT/static-container-registry)
 - [singularityhub/registry](https://github.com/singularityhub/registry)
 
 
+[Limitations]: #limitations
 [Netlify]: http://netlify.com/
 [OVHcloud]: https://www.ovhcloud.com/en/public-cloud/prices/#storage
 [Scaleway]: https://www.scaleway.com/en/pricing/#object-storage
