@@ -204,6 +204,9 @@ tries to pull an image by tag.
 As long as we use the correct `Content-Type` when serving image manifests,
 the container engine should be happy. *Unless...*
 
+
+### Limitations
+
 *Unless* the container engine explicitly asks a specific type of
 manifests, which it can do by using `Accept` request headers.
 If the engine asks for a v2 manifest (single-arch) and we serve
