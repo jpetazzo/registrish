@@ -15,7 +15,7 @@ aws s3 $ENDPOINT cp v2/ s3://$BUCKET/v2/ \
   --acl public-read \
   --recursive --exclude '*/manifests/*'
 
-for MANIFEST in $(find v2/ -path '*/manifests/*'); do
+for MANIFEST in $(find v2 -path '*/manifests/*'); do
   CONTENT_TYPE=$(jq -r .mediaType < $MANIFEST)
   aws s3 $ENDPOINT cp $MANIFEST s3://$BUCKET/$MANIFEST \
     --acl public-read \
