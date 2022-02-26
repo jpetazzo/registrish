@@ -17,6 +17,9 @@ aws s3 $ENDPOINT cp v2/ s3://$BUCKET/v2/ \
 
 for MANIFEST in $(find v2 -path '*/manifests/*'); do
   CONTENT_TYPE=$(jq -r .mediaType < $MANIFEST)
+  if [ "$CONTENT_TYPE" = "null" ]; then
+    CONTENT_TYPE="application/vnd.docker.distribution.manifest.v1+prettyjws"
+  fi
   aws s3 $ENDPOINT cp $MANIFEST s3://$BUCKET/$MANIFEST \
     --acl public-read \
     --content-type $CONTENT_TYPE  \
