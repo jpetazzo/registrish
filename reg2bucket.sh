@@ -11,9 +11,9 @@ set -e
 # will bail early if we lack access to the bucket.
 aws s3 $ENDPOINT ls s3://$BUCKET
 
-aws s3 $ENDPOINT cp v2/ s3://$BUCKET/v2/ \
+aws s3 $ENDPOINT sync v2/ s3://$BUCKET/v2/ \
   --acl public-read \
-  --recursive --exclude '*/manifests/*'
+  --exclude '*/manifests/*'
 
 for MANIFEST in $(find v2 -path '*/manifests/*'); do
   CONTENT_TYPE=$(jq -r .mediaType < $MANIFEST)
