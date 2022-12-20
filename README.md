@@ -15,7 +15,7 @@ For instance:
 
 - a plain NGINX server (without LUA, JSX, or whatever custom module)
 - the [Netlify] CDN
-- an object store like S3, or a compatible one like [Scaleway]
+- an object store like S3, or a compatible one like [R2] or [Scaleway]
 
 
 ## Example
@@ -26,6 +26,11 @@ locations, thanks to registrish.
 Netlify:
 ```bash
 docker run registrish.netlify.app/alpine echo hello there
+```
+
+R2:
+```bash
+docker run pub-a8f6c50314a0467b8f862a261a950bcf.r2.dev/alpine echo hello there
 ```
 
 S3:
@@ -130,14 +135,21 @@ Update this variable with your bucket name.
 export BUCKET=registrish
 ```
 
-If you are using an S3-compatible API (e.g. Scaleway), set the
-following variables (or set the corresponding parameters in your
+If you are using an S3-compatible API, you need to set a few
+additional variables (or set the corresponding parameters in your
 profile).
 
-```bash
-export AWS_DEFAULT_REGION=fr-par
-export ENDPOINT="--endpoint-url https://s3.fr-par.scw.cloud"
-```
+- R2:
+  ```bash
+  export CLOUDFLARE_ACCOUNT_ID=c4c9...
+  export ENDPOINT="--endpoint-url https://$CLOUDFLARE_ACCOUNT_ID.r2.cloudflarestorage.com"
+  ```
+
+- Scaleway:
+  ```bash
+  export AWS_DEFAULT_REGION=fr-par
+  export ENDPOINT="--endpoint-url https://s3.fr-par.scw.cloud"
+  ```
 
 Sync files to the bucket.
 
@@ -264,6 +276,7 @@ it work, let me know!
 [Limitations]: #limitations
 [Netlify]: http://netlify.com/
 [OVHcloud]: https://www.ovhcloud.com/en/public-cloud/prices/#storage
+[R2]: https://developers.cloudflare.com/r2/
 [Scaleway]: https://www.scaleway.com/en/pricing/#object-storage
 [Skopeo]: https://github.com/containers/skopeo
 [terms of service]: https://www.netlify.com/tos/
