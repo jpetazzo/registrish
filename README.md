@@ -14,6 +14,7 @@ the registry code, using almost any static file hosting service.
 For instance:
 
 - a plain NGINX server (without LUA, JSX, or whatever custom module)
+- a plain Apache2 server (using `.htaccess` overrides)
 - the [Netlify] CDN
 - an object store like S3, or a compatible one like [R2] or [Scaleway]
 
@@ -105,6 +106,20 @@ docker-compose up
 ```
 
 The image will be available as `localhost:5555/$IMAGE:$TAG`.
+
+
+### Apache2 server
+
+Generate a `.htaccess` file in `./v2/` folder. This configuration file will
+set `content-type` HTTP headers.
+
+```bash
+./gen-apache2.sh
+```
+
+You may upload `./v2/` folder to the server root of an existing Apache2 server.
+Module `headers_module` must be available and `.htaccess` overrides enabled in
+server configuration.
 
 
 ### Netlify
